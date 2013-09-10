@@ -16,8 +16,10 @@ class FileServer
 	}
 	dirRegex: new RegExp('^/dir/([a-zA-Z0-9_ /\.]*)$')
 	fileRegex: new RegExp('^/file/([a-zA-Z0-9_ /\.]+)$')
-	constructor:(@port, @publicDir) ->
-
+	constructor:(settings) ->
+		@publicDir = settings.directory
+		@port = settings.port
+			
 	startServer: ->
 		http.createServer( (req, res) =>
 			uri = url.parse(req.url).pathname
@@ -122,7 +124,41 @@ class FileServer
 		res.writeHead(500)
 		res.end()
 
-dir = process.cwd()
-port = 4567
-fileServer = new FileServer(port, dir)
-fileServer.startServer()
+class Validator
+	validateArgs: ->
+		if(process.argv.length <= 2)
+			console.log 'Missing directory operand and optional port'
+			return false
+		dir = process.argv[2]
+		if(process.argv.length == 3)
+			port = 4567
+		else
+			port = process.argv[3]
+		if(@validatePathPort(dir, port))
+			return { directory: dir, port: port }
+		return false
+	validatePathPort: (dirpath, port) ->
+		if(not @validateDir(dirpath))
+			console.log('Directory path is bad')
+			return false
+		if(not @validatePort(port))
+			console.log('Port must be a number between 1 to 65535')
+			return false
+		return true
+	validateDir: (dirpath) ->
+		if(fs.existsSync(dirpath))
+			return fs.statSync(dirpath).isDirectory()
+		return false
+	validatePort: (port) ->
+		num = parseInt(port)
+		if(isNaN(num))
+			return false
+		if(num < 1 || num > 65535)
+			return false
+		return true
+
+validator = new Validator()
+settings = validator.validateArgs()
+if(settings)
+	fileServer = new FileServer(settings)
+	fileServer.startServer()

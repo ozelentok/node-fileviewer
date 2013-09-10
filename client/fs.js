@@ -44,6 +44,7 @@
     App.prototype.appendDirToList = function(dirData, id) {
       var _this = this;
       this.$file_list.append("<li><span class=\"dirLink\" id=\"" + id + "\">" + dirData.name + "</span></li>");
+      console.log(dirData.uri);
       return $("#" + id).click(function() {
         return _this.dirAjaxHandler(dirData.uri);
       });

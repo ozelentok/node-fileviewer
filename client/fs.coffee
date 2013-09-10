@@ -26,6 +26,7 @@ class App
 		@$file_list.append("<li><a href=\"#{fileData.uri}\">#{fileData.name}</a></li>")
 	appendDirToList: (dirData, id) ->
 		@$file_list.append("<li><span class=\"dirLink\" id=\"#{id}\">#{dirData.name}</span></li>")
+		console.log dirData.uri
 		$("##{id}").click( =>
 			@dirAjaxHandler(dirData.uri)
 		)
