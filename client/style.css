@@ -1,0 +1,7 @@
+body {
+	background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAK0lEQVQImWNgYGD47+Dg8F9NTe0/jM2ALqCmpvafAUOAgeE/AxYBVO0wDAD1oCFGU+HusAAAAABJRU5ErkJggg==) repeat;
+}
+.dirLink {
+	cursor: pointer;
+}
+
