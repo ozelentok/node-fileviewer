@@ -1,7 +1,40 @@
-body {
-	background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAK0lEQVQImWNgYGD47+Dg8F9NTe0/jM2ALqCmpvafAUOAgeE/AxYBVO0wDAD1oCFGU+HusAAAAABJRU5ErkJggg==) repeat;
+*{
+	margin:0;
+	padding:0;
 }
-.dirLink {
-	cursor: pointer;
+body{
+	background-color:#edf0f4;
+	font:15px/1.3 Arial, sans-serif;
+	color: #4f4f4f;
 }
-
+#main {
+	padding:70px;
+	background-color:#fff;
+	box-shadow:0 0 1px #ccc;
+	width:550px;
+	margin:30px auto;
+	border-radius:6px;
+	font:bold 24px/1 'PT Sans', sans-serif;
+	color:#4b4b4b;
+}
+#main h1 {
+	font-size:36px;
+	text-align: center;
+	text-transform: uppercase;
+	padding: 0 0 50px;
+}
+#file_list {
+	list-style:none;
+	margin:0 auto;
+	width:550px;
+}
+#file_list li {
+	background-color: #f9f9fa;
+	box-shadow:0 1px 1px #eee;
+	font-size:22px;
+	color:#5b5b5b;
+	padding:22px 30px;
+	margin-bottom:10px;
+	border-radius:4px;
+	cursor:pointer;
+}

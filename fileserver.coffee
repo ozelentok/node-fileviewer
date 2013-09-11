@@ -105,16 +105,20 @@ class FileServer
 				return
 			dataToSend = []
 			for i in [0...files.length]
-				isDir = fs.statSync(path.join(realPath, files[i])).isDirectory()
+				fileStats = fs.statSync(path.join(realPath, files[i]))
+				isDir = fileStats.isDirectory()
 				if(isDir)
 					uriStart = realPath.replace(@publicDir, '/dir/')
+					fileSize = 0
 				else
 					uriStart = realPath.replace(@publicDir, '/file/')
+					fileSize = fileStats.size
 				uri = path.join(uriStart, files[i])
 				dataToSend[i] = {
 					name: files[i]
 					uri: uri
 					isDir: isDir
+					size: fileSize
 				}
 			res.writeHead(200, {'Content-Type': 'application/json'})
 			res.write(JSON.stringify(dataToSend))

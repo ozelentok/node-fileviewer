@@ -132,24 +132,28 @@
     FileServer.prototype.sendDirContents = function(realPath, res) {
       var _this = this;
       fs.readdir(realPath, function(err, files) {
-        var dataToSend, i, isDir, uri, uriStart, _i, _ref;
+        var dataToSend, fileSize, fileStats, i, isDir, uri, uriStart, _i, _ref;
         if (err) {
           _this.sendErrorInternal(res);
           return;
         }
         dataToSend = [];
         for (i = _i = 0, _ref = files.length; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
-          isDir = fs.statSync(path.join(realPath, files[i])).isDirectory();
+          fileStats = fs.statSync(path.join(realPath, files[i]));
+          isDir = fileStats.isDirectory();
           if (isDir) {
             uriStart = realPath.replace(_this.publicDir, '/dir/');
+            fileSize = 0;
           } else {
             uriStart = realPath.replace(_this.publicDir, '/file/');
+            fileSize = fileStats.size;
           }
           uri = path.join(uriStart, files[i]);
           dataToSend[i] = {
             name: files[i],
             uri: uri,
-            isDir: isDir
+            isDir: isDir,
+            size: fileSize
           };
         }
         res.writeHead(200, {
