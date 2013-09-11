@@ -3,56 +3,65 @@ http = require 'http'
 url = require 'url'
 path = require 'path'
 fs = require 'fs'
+mime = require 'mime'
 class FileServer
-	clientFilePaths: {
-		'/': 'client/index.html'
-		'/style.css': 'client/style.css'
-		'/fs.js': 'client/fs.js'
-	}
-	clientContentTypes: {
-		'/': 'text/html'
-		'/style.css': 'text/css'
-		'/fs.js' : 'application/javascript'
-	}
-	dirRegex: new RegExp('^/dir/([a-zA-Z0-9_ /\.]*)$')
-	fileRegex: new RegExp('^/file/([a-zA-Z0-9_ /\.]+)$')
+	dirRegex: new RegExp('^/dir/([^\0]*)$')
+	fileRegex: new RegExp('^/file/([^\0]+)$')
 	constructor:(settings) ->
 		@publicDir = settings.directory
 		@port = settings.port
-			
+		@clientDir = settings.clientDir || 'client'
+
 	startServer: ->
 		http.createServer( (req, res) =>
 			uri = url.parse(req.url).pathname
 			uri = unescape(uri)
-			if(@clientFilePaths.hasOwnProperty(uri))
-				console.log "Sending Client File: #{uri}"
-				@sendClient(uri, res)
-				return
 			regexMatch = @dirRegex.exec(uri)
 			if(regexMatch != null)
 				console.log "Sending Dir: #{uri}"
-				realPath = path.join(@publicDir, regexMatch[1])
-				@checkDirExistenceAndHandle(realPath, res)
+				@checkDirExistenceAndHandle(regexMatch[1], res)
 				return
 			regexMatch = @fileRegex.exec(uri)
 			if(regexMatch != null)
 				console.log "Sending File: #{uri}"
-				realPath = path.join(@publicDir, regexMatch[1])
-				@checkFileExistenceAndHandle(realPath, res)
+				@checkFileExistenceAndHandle(regexMatch[1], res)
 				return
-			@sendErrorNotFound(res)
+			console.log "Sending Client File: #{uri}"
+			@checkClientFileExistenceAndHandle(uri, res)
+			return
 		).listen(@port)
 		console.log "Server open on port #{@port}"
 		console.log "Folder used: #{@publicDir}"
 	
-	checkDirExistenceAndHandle: (realPath, res) ->
+	checkClientFileExistenceAndHandle: (clientUri, res) ->
+		if (clientUri == '/')
+			clientUri = 'index.html'
+		realPath = path.join(@clientDir, clientUri)
+		fs.exists(realPath, (doesExist) =>
+			if (not doesExist)
+				@sendErrorNotFound(res)
+				return
+			fs.stat(realPath, (err, stats) =>
+				if(err)
+					@sendErrorInternal(res)
+				else if(stats.isDirectory())
+					@sendErrorInternal(res)
+				else
+					@sendClient(realPath, res)
+			)
+			return
+		)
+		return
+
+	checkDirExistenceAndHandle: (dirUri, res) ->
+		realPath = path.join(@publicDir, dirUri)
 		fs.exists(realPath, (doesExist) =>
 			if(not doesExist)
 				@sendErrorNotFound(res)
 				return
 			fs.stat(realPath,  (err, stats) =>
 				if(err)
-					@sendErrorNotFound(res)
+					@sendErrorInternal(res)
 				else if(stats.isDirectory())
 					@sendDirContents(realPath,  res)
 				else
@@ -61,16 +70,17 @@ class FileServer
 			return
 		)
 		return
-	checkFileExistenceAndHandle: (realPath,  res) ->
+	checkFileExistenceAndHandle: (fileUri,  res) ->
+		realPath = path.join(@publicDir, fileUri)
 		fs.exists(realPath, (doesExist) =>
 			if(not doesExist)
 				@sendErrorNotFound(res)
 				return
-			fs.stat(realPath,  (err, stats) =>
+			fs.stat(realPath, (err, stats) =>
 				if(err)
 					@sendErrorNotFound(res)
 				else if(stats.isFile())
-					@sendFile(realPath,  res)
+					@sendFile(realPath, res)
 				else
 					@sendErrorNotFound(res)
 			)
@@ -78,12 +88,12 @@ class FileServer
 		)
 		return
 
-	sendClient: (uri, res) ->
-		fs.readFile(@clientFilePaths[uri], (err, data) =>
+	sendClient: (realPath, res) ->
+		fs.readFile(realPath, (err, data) =>
 			if(err)
 				@sendErrorInternal(res)
 				return
-			res.writeHead(200, {'Content-Type': @clientContentTypes[uri]})
+			res.writeHead(200, {'Content-Type': mime.lookup(realPath)})
 			res.write(data)
 			res.end()
 		)
@@ -97,9 +107,9 @@ class FileServer
 			for i in [0...files.length]
 				isDir = fs.statSync(path.join(realPath, files[i])).isDirectory()
 				if(isDir)
-					uriStart = realPath.replace(@publicDir, '/dir')
+					uriStart = realPath.replace(@publicDir, '/dir/')
 				else
-					uriStart = realPath.replace(@publicDir, '/file')
+					uriStart = realPath.replace(@publicDir, '/file/')
 				uri = path.join(uriStart, files[i])
 				dataToSend[i] = {
 					name: files[i]
@@ -112,9 +122,8 @@ class FileServer
 		)
 		return
 	sendFile: (filepath, res) ->
-		console.log "Sending #{filepath}"
 		stream = fs.createReadStream(filepath)
-		res.writeHead(200)
+		res.writeHead(200, {'Content-Type': mime.lookup(filepath)})
 		stream.pipe(res, {end:true})
 		return
 	sendErrorNotFound: (res) ->
