@@ -141,11 +141,10 @@
         for (i = _i = 0, _ref = files.length; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
           fileStats = fs.statSync(path.join(realPath, files[i]));
           isDir = fileStats.isDirectory();
+          uriStart = realPath.replace(_this.publicDir, '/');
           if (isDir) {
-            uriStart = realPath.replace(_this.publicDir, '/dir/');
             fileSize = 0;
           } else {
-            uriStart = realPath.replace(_this.publicDir, '/file/');
             fileSize = fileStats.size;
           }
           uri = path.join(uriStart, files[i]);

@@ -20,12 +20,27 @@
   FV.FileView = Backbone.View.extend({
     tagName: 'li',
     render: function() {
+      var readableSize;
       if (this.model.get('isDir')) {
         this.$el.html("<img src=\"img/directory.png\"><a class=\"filename\">" + (this.model.get('name')) + "</span>");
       } else {
-        this.$el.html("<img src=\"img/file.png\"><a href=\"" + (this.model.get('uri')) + "\" class=\"filename\">" + (this.model.get('name')) + "</a><br /><span class=\"filesize\">" + (this.model.get('size')) + "<span>");
+        readableSize = this.humanSize(this.model.get('size'));
+        this.$el.html("<img src=\"img/file.png\" /><a href=\"/file" + (this.model.get('uri')) + "\" class=\"filename\">" + (this.model.get('name')) + "</a><span class=\"filesize\">" + readableSize + "</span>");
       }
       return this;
+    },
+    humanSize: function(size) {
+      var type, types, _i, _len;
+      types = ['Bytes', 'KB', 'MB'];
+      for (_i = 0, _len = types.length; _i < _len; _i++) {
+        type = types[_i];
+        if (size < 1024) {
+          return "" + (size.toFixed(1)) + " " + type;
+        } else {
+          size /= 1024;
+        }
+      }
+      return "" + (size.toFixed(1)) + " GB";
     }
   });
 
@@ -33,20 +48,19 @@
     el: $('#main'),
     initialize: function() {
       FV.fileList = new FV.FileList();
-      FV.path = '/';
+      this.listenTo(FV.fileList, 'reset', this.render);
       this.pathHeader = this.$('#current_path');
       this.list = this.$('#file_list');
-      this.listenTo(FV.fileList, 'reset', this.render);
-      this.dirAjaxHandler('/dir/');
+      this.dirAjaxHandler('/');
     },
-    dirAjaxHandler: function(uri) {
+    dirAjaxHandler: function(path) {
       var _this = this;
       $.ajax({
-        url: uri,
+        url: '/dir' + path,
         type: 'GET',
         dataType: 'json',
         success: function(data) {
-          return _this.updatePathAndFiles(data, uri);
+          return _this.updatePathAndFiles(data, path);
         }
       });
     },
@@ -58,8 +72,8 @@
         item = new FV.FileItem(file);
         newItems.push(item);
       }
-      FV.fileList.reset(newItems);
       FV.path = path;
+      FV.fileList.reset(newItems);
     },
     render: function() {
       var _this = this;

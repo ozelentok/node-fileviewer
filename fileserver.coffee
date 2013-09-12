@@ -107,11 +107,10 @@ class FileServer
 			for i in [0...files.length]
 				fileStats = fs.statSync(path.join(realPath, files[i]))
 				isDir = fileStats.isDirectory()
+				uriStart = realPath.replace(@publicDir, '/')
 				if(isDir)
-					uriStart = realPath.replace(@publicDir, '/dir/')
 					fileSize = 0
 				else
-					uriStart = realPath.replace(@publicDir, '/file/')
 					fileSize = fileStats.size
 				uri = path.join(uriStart, files[i])
 				dataToSend[i] = {

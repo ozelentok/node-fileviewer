@@ -20,28 +20,36 @@ FV.FileView = Backbone.View.extend(
 		if (@model.get('isDir'))
 			@$el.html("<img src=\"img/directory.png\"><a class=\"filename\">#{@model.get('name')}</span>")
 		else
-			@$el.html("<img src=\"img/file.png\"><a href=\"#{@model.get('uri')}\" class=\"filename\">#{@model.get('name')}</a><br /><span class=\"filesize\">#{@model.get('size')}<span>")
+			readableSize = @humanSize(@model.get('size'))
+			@$el.html("<img src=\"img/file.png\" /><a href=\"/file#{@model.get('uri')}\" class=\"filename\">#{@model.get('name')}</a><span class=\"filesize\">#{readableSize}</span>")
 		return @
+	humanSize: (size) ->
+		types = ['Bytes', 'KB', 'MB']
+		for type in types
+			if(size < 1024)
+				return "#{size.toFixed(1)} #{type}"
+			else
+				size /= 1024
+		return "#{size.toFixed(1)} GB"
 )
 #class FV.FileMainView extends Backbone.View
 FV.FileMainView = Backbone.View.extend(
 	el: $('#main')
 	initialize: ->
 		FV.fileList = new FV.FileList()
-		FV.path = '/'
+		@listenTo(FV.fileList, 'reset', @render)
 		@pathHeader = @$('#current_path')
 		@list = @$('#file_list')
-		@listenTo(FV.fileList, 'reset', @render)
-		@dirAjaxHandler('/dir/')
+		@dirAjaxHandler('/')
 		return
 
-	dirAjaxHandler: (uri) ->
+	dirAjaxHandler: (path) ->
 		$.ajax({
-			url: uri
+			url: '/dir' + path
 			type: 'GET'
 			dataType: 'json'
 			success: (data) =>
-				@updatePathAndFiles(data, uri)
+				@updatePathAndFiles(data, path)
 		})
 		return
 
@@ -50,8 +58,8 @@ FV.FileMainView = Backbone.View.extend(
 		for file in data
 			item = new FV.FileItem(file)
 			newItems.push(item)
-		FV.fileList.reset(newItems)
 		FV.path = path
+		FV.fileList.reset(newItems)
 		return
 
 	render: ->
