@@ -20,7 +20,11 @@ body{
 #main h1 {
 	font-size:36px;
 	text-align: center;
-	text-transform: uppercase;
+	padding: 0 0 50px;
+}
+#main h2 {
+	font-size:26px;
+	text-align: center;
 	padding: 0 0 50px;
 }
 #file_list {
@@ -33,8 +37,12 @@ body{
 	box-shadow:0 1px 1px #eee;
 	font-size:22px;
 	color:#5b5b5b;
-	padding:22px 30px;
+	padding:12px 15px;
 	margin-bottom:10px;
 	border-radius:4px;
 	cursor:pointer;
+}
+#file_list li img + *  {
+	padding-left: 10px;
+	vertical-align: 25%;
 }
