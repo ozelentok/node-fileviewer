@@ -17,12 +17,12 @@ class FileServer
 			uri = url.parse(req.url).pathname
 			uri = unescape(uri)
 			regexMatch = @dirRegex.exec(uri)
-			if(regexMatch != null)
+			if(regexMatch isnt null)
 				console.log "Sending Dir: #{uri}"
 				@checkDirExistenceAndHandle(regexMatch[1], res)
 				return
 			regexMatch = @fileRegex.exec(uri)
-			if(regexMatch != null)
+			if(regexMatch isnt null)
 				console.log "Sending File: #{uri}"
 				@checkFileExistenceAndHandle(regexMatch[1], res)
 				return
@@ -34,7 +34,7 @@ class FileServer
 		console.log "Folder used: #{@publicDir}"
 	
 	checkClientFileExistenceAndHandle: (clientUri, res) ->
-		if (clientUri == '/')
+		if (clientUri is '/')
 			clientUri = 'index.html'
 		realPath = path.join(@clientDir, clientUri)
 		fs.exists(realPath, (doesExist) =>
@@ -59,11 +59,11 @@ class FileServer
 			if(not doesExist)
 				@sendErrorNotFound(res)
 				return
-			fs.stat(realPath,  (err, stats) =>
+			fs.stat(realPath, (err, stats) =>
 				if(err)
 					@sendErrorInternal(res)
 				else if(stats.isDirectory())
-					@sendDirContents(realPath,  res)
+					@sendDirContents(realPath, res)
 				else
 					@sendErrorNotFound(res)
 			)
@@ -113,6 +113,8 @@ class FileServer
 				else
 					fileSize = fileStats.size
 				uri = path.join(uriStart, files[i])
+				if isDir
+					uri += '/'
 				dataToSend[i] = {
 					name: files[i]
 					uri: uri
@@ -142,7 +144,7 @@ class Validator
 			console.log 'Missing directory operand and optional port'
 			return false
 		dir = process.argv[2]
-		if(process.argv.length == 3)
+		if(process.argv.length is 3)
 			port = 4567
 		else
 			port = process.argv[3]

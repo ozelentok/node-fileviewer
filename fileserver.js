@@ -148,6 +148,9 @@
             fileSize = fileStats.size;
           }
           uri = path.join(uriStart, files[i]);
+          if (isDir) {
+            uri += '/';
+          }
           dataToSend[i] = {
             name: files[i],
             uri: uri,

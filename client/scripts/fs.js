@@ -67,6 +67,14 @@
     updatePathAndFiles: function(data, path) {
       var file, item, newItems, _i, _len;
       newItems = [];
+      if (path !== '/') {
+        newItems.push({
+          name: 'Up to heigher directory',
+          uri: this.parentDir(path),
+          isDir: true,
+          size: -1
+        });
+      }
       for (_i = 0, _len = data.length; _i < _len; _i++) {
         file = data[_i];
         item = new FV.FileItem(file);
@@ -75,19 +83,29 @@
       FV.path = path;
       FV.fileList.reset(newItems);
     },
+    parentDir: function(dirpath) {
+      var i, _i, _ref;
+      for (i = _i = _ref = dirpath.length - 2; _i >= 0; i = _i += -1) {
+        if (dirpath[i] === '/') {
+          return dirpath.slice(0, i + 1);
+        }
+      }
+      return dirpath;
+    },
     render: function() {
       var _this = this;
       this.list.empty();
       this.pathHeader.html(FV.path);
       FV.fileList.each(function(item) {
-        var elem, view;
+        var elem, uri, view;
         view = new FV.FileView({
           model: item
         });
         elem = view.render().el;
         if (item.get('isDir')) {
+          uri = item.get('uri');
           $(elem).click(function() {
-            return _this.dirAjaxHandler(item.get('uri'));
+            return _this.dirAjaxHandler(uri);
           });
         }
         return _this.list.append(elem);

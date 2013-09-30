@@ -55,12 +55,25 @@ FV.FileMainView = Backbone.View.extend(
 
 	updatePathAndFiles: (data, path) ->
 		newItems = []
+		if path isnt '/'
+			newItems.push({
+				name: 'Up to heigher directory'
+				uri: @parentDir(path)
+				isDir: true
+				size: -1
+			})
 		for file in data
 			item = new FV.FileItem(file)
 			newItems.push(item)
 		FV.path = path
 		FV.fileList.reset(newItems)
 		return
+
+	parentDir: (dirpath) ->
+		for i in [dirpath.length - 2..0] by -1
+			if dirpath[i] is '/'
+				return dirpath.slice(0, i+1)
+		return dirpath
 
 	render: ->
 		@list.empty()
@@ -69,8 +82,9 @@ FV.FileMainView = Backbone.View.extend(
 			view = new FV.FileView({model: item})
 			elem = view.render().el
 			if(item.get('isDir'))
+				uri = item.get('uri')
 				$(elem).click( =>
-					@dirAjaxHandler(item.get('uri'))
+					@dirAjaxHandler(uri)
 				)
 			@list.append(elem)
 		)
