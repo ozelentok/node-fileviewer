@@ -37,6 +37,10 @@ class FileServer
 		if (clientUri is '/')
 			clientUri = 'index.html'
 		realPath = path.join(@clientDir, clientUri)
+		realPath = path.normalize(realPath)
+		if realPath.indexOf(@clientDir) != 0
+			@sendErrorNotFound(res)
+			return
 		fs.exists(realPath, (doesExist) =>
 			if (not doesExist)
 				@sendErrorNotFound(res)
@@ -55,6 +59,10 @@ class FileServer
 
 	checkDirExistenceAndHandle: (dirUri, res) ->
 		realPath = path.join(@publicDir, dirUri)
+		realPath = path.normalize(realPath)
+		if realPath.indexOf(@publicDir) != 0
+			@sendErrorNotFound(res)
+			return
 		fs.exists(realPath, (doesExist) =>
 			if(not doesExist)
 				@sendErrorNotFound(res)
@@ -72,6 +80,10 @@ class FileServer
 		return
 	checkFileExistenceAndHandle: (fileUri,  res) ->
 		realPath = path.join(@publicDir, fileUri)
+		realPath = path.normalize(realPath)
+		if realPath.indexOf(@publicDir) != 0
+			@sendErrorNotFound(res)
+			return
 		fs.exists(realPath, (doesExist) =>
 			if(not doesExist)
 				@sendErrorNotFound(res)

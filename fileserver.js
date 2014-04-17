@@ -55,6 +55,11 @@
         clientUri = 'index.html';
       }
       realPath = path.join(this.clientDir, clientUri);
+      realPath = path.normalize(realPath);
+      if (realPath.indexOf(this.clientDir) !== 0) {
+        this.sendErrorNotFound(res);
+        return;
+      }
       fs.exists(realPath, function(doesExist) {
         if (!doesExist) {
           _this.sendErrorNotFound(res);
@@ -76,6 +81,11 @@
       var realPath,
         _this = this;
       realPath = path.join(this.publicDir, dirUri);
+      realPath = path.normalize(realPath);
+      if (realPath.indexOf(this.publicDir) !== 0) {
+        this.sendErrorNotFound(res);
+        return;
+      }
       fs.exists(realPath, function(doesExist) {
         if (!doesExist) {
           _this.sendErrorNotFound(res);
@@ -97,6 +107,11 @@
       var realPath,
         _this = this;
       realPath = path.join(this.publicDir, fileUri);
+      realPath = path.normalize(realPath);
+      if (realPath.indexOf(this.publicDir) !== 0) {
+        this.sendErrorNotFound(res);
+        return;
+      }
       fs.exists(realPath, function(doesExist) {
         if (!doesExist) {
           _this.sendErrorNotFound(res);
