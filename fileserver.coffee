@@ -4,6 +4,11 @@ url = require 'url'
 path = require 'path'
 fs = require 'fs'
 mime = require 'mime'
+
+DEFAULTS =
+	PORT: 8000,
+	DIRECTORY: process.cwd()
+
 class FileServer
 	dirRegex: new RegExp('^/dir/([^\0]*)$')
 	fileRegex: new RegExp('^/file/([^\0]+)$')
@@ -13,16 +18,19 @@ class FileServer
 		@clientDir = settings.clientDir || 'client'
 
 	startServer: ->
-		http.createServer( (req, res) =>
+		http.createServer((req, res) =>
 			uri = url.parse(req.url).pathname
 			uri = unescape(uri)
 			regexMatch = @dirRegex.exec(uri)
-			if(regexMatch isnt null)
+			socketData = req.socket.address()
+			timeOfRequest = @getCurrentTime()
+			console.log("#{socketData.address} - #{timeOfRequest} \"#{req.method} #{uri}\"")
+			if regexMatch isnt null
 				console.log "Sending Dir: #{uri}"
 				@checkDirExistenceAndHandle(regexMatch[1], res)
 				return
 			regexMatch = @fileRegex.exec(uri)
-			if(regexMatch isnt null)
+			if regexMatch isnt null
 				console.log "Sending File: #{uri}"
 				@checkFileExistenceAndHandle(regexMatch[1], res)
 				return
@@ -30,9 +38,9 @@ class FileServer
 			@checkClientFileExistenceAndHandle(uri, res)
 			return
 		).listen(@port)
-		console.log "Server open on port #{@port}"
+		console.log "Server serving on port #{@port}"
 		console.log "Folder used: #{@publicDir}"
-	
+
 	checkClientFileExistenceAndHandle: (clientUri, res) ->
 		if (clientUri is '/')
 			clientUri = 'index.html'
@@ -150,41 +158,45 @@ class FileServer
 		res.writeHead(500)
 		res.end()
 
+	getCurrentTime: ->
+		currentTime = new Date()
+		return '[' + currentTime.getFullYear() + '-' +
+				(currentTime.getMonth() + 1) + '-' +
+				(currentTime.getDate()) + ' ' +
+				(currentTime.getHours()) + ':' +
+				(currentTime.getMinutes()) + ':' +
+				currentTime.getSeconds() + ']'
+
 class Validator
 	validateArgs: ->
-		if(process.argv.length <= 2)
-			console.log 'Missing directory operand and optional port'
-			return false
-		dir = process.argv[2]
-		if(process.argv.length is 3)
-			port = 4567
-		else
-			port = process.argv[3]
-		if(@validatePathPort(dir, port))
+		dir = process.argv[2] || DEFAULTS.DIRECTORY
+		dir = path.resolve(dir, DEFAULTS.DIRECTORY)
+		port = process.argv[3] || DEFAULTS.PORT
+		if @validatePathPort(dir, port)
 			return { directory: dir, port: port }
 		return false
 	validatePathPort: (dirpath, port) ->
-		if(not @validateDir(dirpath))
+		if not @validateDir(dirpath)
 			console.log('Directory path is bad')
 			return false
-		if(not @validatePort(port))
-			console.log('Port must be a number between 1 to 65535')
+		if not @validatePort(port)
+			console.log('Port must be a number between 0 to 65535')
 			return false
 		return true
 	validateDir: (dirpath) ->
-		if(fs.existsSync(dirpath))
+		if fs.existsSync(dirpath)
 			return fs.statSync(dirpath).isDirectory()
 		return false
 	validatePort: (port) ->
 		num = parseInt(port)
-		if(isNaN(num))
+		if isNaN(num)
 			return false
-		if(num < 1 || num > 65535)
+		if num < 0 || num > 65535
 			return false
 		return true
 
 validator = new Validator()
 settings = validator.validateArgs()
-if(settings)
+if settings
 	fileServer = new FileServer(settings)
 	fileServer.startServer()

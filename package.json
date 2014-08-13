@@ -1,0 +1,28 @@
+{
+  "name": "node-fileviewer",
+  "version": "1.0.0",
+  "description": "HTTP Server to serve files",
+  "main": "fileserver.js",
+  "dependencies": {
+    "mime": "^1.2.11"
+  },
+  "devDependencies": {},
+  "scripts": {
+		"serve": "node fileserver.js $(PWD) 8000"
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ozelentok/node-fileviewer.git"
+  },
+  "keywords": [
+    "fileserver",
+    "httpserver"
+  ],
+  "author": "Oz Elentok",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ozelentok/node-fileviewer/issues"
+  },
+  "homepage": "https://github.com/ozelentok/node-fileviewer"
+}
