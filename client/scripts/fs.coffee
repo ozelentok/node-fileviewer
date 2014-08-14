@@ -1,5 +1,8 @@
 #autocompile
 FV = {}
+FV.Constants =
+	BACKSPACE_KEY: 8
+
 #class FV.FileItem extends Backbone.Model
 FV.FileItem = Backbone.Model.extend(
 	defaults: {
@@ -36,8 +39,8 @@ FV.FileView = Backbone.View.extend(
 FV.FileMainView = Backbone.View.extend(
 	el: $('#main')
 	initialize: ->
-		FV.fileList = new FV.FileList()
-		@listenTo(FV.fileList, 'reset', @render)
+		@fileList = new FV.FileList()
+		@listenTo(@fileList, 'reset', @render)
 		@pathHeader = @$('#current_path')
 		@list = @$('#file_list')
 		@dirAjaxHandler('/')
@@ -65,8 +68,8 @@ FV.FileMainView = Backbone.View.extend(
 		for file in data
 			item = new FV.FileItem(file)
 			newItems.push(item)
-		FV.path = path
-		FV.fileList.reset(newItems)
+		@path = path
+		@fileList.reset(newItems)
 		return
 
 	parentDir: (dirpath) ->
@@ -77,8 +80,8 @@ FV.FileMainView = Backbone.View.extend(
 
 	render: ->
 		@list.empty()
-		@pathHeader.html(FV.path)
-		FV.fileList.each( (item) =>
+		@pathHeader.html(@path)
+		@fileList.each( (item) =>
 			view = new FV.FileView({model: item})
 			elem = view.render().el
 			if(item.get('isDir'))
@@ -91,8 +94,11 @@ FV.FileMainView = Backbone.View.extend(
 		return @
 )
 $(document).ready( ->
-	window.FV = FV
 	app = new FV.FileMainView()
+	$('html').keyup((e) ->
+		if e.keyCode is FV.Constants.BACKSPACE_KEY and app.path != '/'
+			app.dirAjaxHandler(app.parentDir(app.path))
+	)
 	return
 )
 

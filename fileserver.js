@@ -14,7 +14,8 @@
 
   DEFAULTS = {
     PORT: 8000,
-    DIRECTORY: process.cwd()
+    DIRECTORY: process.cwd(),
+    CLIENT_DIR: 'client'
   };
 
   FileServer = (function() {
@@ -25,7 +26,7 @@
     function FileServer(settings) {
       this.publicDir = settings.directory;
       this.port = settings.port;
-      this.clientDir = settings.clientDir || 'client';
+      this.clientDir = settings.clientDir;
     }
 
     FileServer.prototype.startServer = function() {
@@ -34,22 +35,19 @@
           var regexMatch, socketData, timeOfRequest, uri;
           uri = url.parse(req.url).pathname;
           uri = unescape(uri);
-          regexMatch = _this.dirRegex.exec(uri);
           socketData = req.socket.address();
           timeOfRequest = _this.getCurrentTime();
           console.log("" + socketData.address + " - " + timeOfRequest + " \"" + req.method + " " + uri + "\"");
+          regexMatch = _this.dirRegex.exec(uri);
           if (regexMatch !== null) {
-            console.log("Sending Dir: " + uri);
             _this.checkDirExistenceAndHandle(regexMatch[1], res);
             return;
           }
           regexMatch = _this.fileRegex.exec(uri);
           if (regexMatch !== null) {
-            console.log("Sending File: " + uri);
             _this.checkFileExistenceAndHandle(regexMatch[1], res);
             return;
           }
-          console.log("Sending Client File: " + uri);
           _this.checkClientFileExistenceAndHandle(uri, res);
         };
       })(this)).listen(this.port);
@@ -57,102 +55,79 @@
       return console.log("Folder used: " + this.publicDir);
     };
 
-    FileServer.prototype.checkClientFileExistenceAndHandle = function(clientUri, res) {
+    FileServer.prototype.checkClientFileExistenceAndHandle = function(uri, res) {
       var realPath;
-      if (clientUri === '/') {
-        clientUri = 'index.html';
+      if (uri === '/') {
+        uri = 'index.html';
       }
-      realPath = path.join(this.clientDir, clientUri);
-      realPath = path.normalize(realPath);
-      if (realPath.indexOf(this.clientDir) !== 0) {
+      realPath = this.convertPath(this.clientDir, uri);
+      if (!realPath) {
         this.sendErrorNotFound(res);
         return;
       }
-      fs.exists(realPath, (function(_this) {
-        return function(doesExist) {
-          if (!doesExist) {
-            _this.sendErrorNotFound(res);
-            return;
-          }
-          fs.stat(realPath, function(err, stats) {
-            if (err) {
-              return _this.sendErrorInternal(res);
-            } else if (stats.isDirectory()) {
-              return _this.sendErrorInternal(res);
-            } else {
-              return _this.sendClient(realPath, res);
-            }
-          });
-        };
-      })(this));
-    };
-
-    FileServer.prototype.checkDirExistenceAndHandle = function(dirUri, res) {
-      var realPath;
-      realPath = path.join(this.publicDir, dirUri);
-      realPath = path.normalize(realPath);
-      if (realPath.indexOf(this.publicDir) !== 0) {
-        this.sendErrorNotFound(res);
-        return;
-      }
-      fs.exists(realPath, (function(_this) {
-        return function(doesExist) {
-          if (!doesExist) {
-            _this.sendErrorNotFound(res);
-            return;
-          }
-          fs.stat(realPath, function(err, stats) {
-            if (err) {
-              return _this.sendErrorInternal(res);
-            } else if (stats.isDirectory()) {
-              return _this.sendDirContents(realPath, res);
-            } else {
-              return _this.sendErrorNotFound(res);
-            }
-          });
-        };
-      })(this));
-    };
-
-    FileServer.prototype.checkFileExistenceAndHandle = function(fileUri, res) {
-      var realPath;
-      realPath = path.join(this.publicDir, fileUri);
-      realPath = path.normalize(realPath);
-      if (realPath.indexOf(this.publicDir) !== 0) {
-        this.sendErrorNotFound(res);
-        return;
-      }
-      fs.exists(realPath, (function(_this) {
-        return function(doesExist) {
-          if (!doesExist) {
-            _this.sendErrorNotFound(res);
-            return;
-          }
-          fs.stat(realPath, function(err, stats) {
-            if (err) {
-              return _this.sendErrorNotFound(res);
-            } else if (stats.isFile()) {
-              return _this.sendFile(realPath, res);
-            } else {
-              return _this.sendErrorNotFound(res);
-            }
-          });
-        };
-      })(this));
-    };
-
-    FileServer.prototype.sendClient = function(realPath, res) {
-      fs.readFile(realPath, (function(_this) {
-        return function(err, data) {
+      fs.stat(realPath, (function(_this) {
+        return function(err, stats) {
           if (err) {
             _this.sendErrorInternal(res);
-            return;
+          } else if (stats.isDirectory()) {
+            _this.sendErrorInternal(res);
+          } else {
+            _this.sendFile(realPath, res);
           }
-          res.writeHead(200, {
-            'Content-Type': mime.lookup(realPath)
-          });
-          res.write(data);
-          return res.end();
+        };
+      })(this));
+    };
+
+    FileServer.prototype.convertPath = function(parentDir, uri) {
+      var realPath;
+      realPath = path.join(parentDir, uri);
+      realPath = path.normalize(realPath);
+      if (realPath.indexOf(parentDir) !== 0) {
+        return false;
+      }
+      if (fs.existsSync(realPath)) {
+        return realPath;
+      } else {
+        return false;
+      }
+    };
+
+    FileServer.prototype.checkDirExistenceAndHandle = function(uri, res) {
+      var realPath;
+      realPath = this.convertPath(this.publicDir, uri);
+      if (!realPath) {
+        this.sendErrorNotFound(res);
+        return;
+      }
+      fs.stat(realPath, (function(_this) {
+        return function(err, stats) {
+          if (err) {
+            _this.sendErrorInternal(res);
+          } else if (stats.isDirectory()) {
+            _this.sendDirContents(realPath, res);
+          } else {
+            _this.sendErrorNotFound(res);
+          }
+        };
+      })(this));
+    };
+
+    FileServer.prototype.checkFileExistenceAndHandle = function(uri, res) {
+      var realPath;
+      realPath = this.convertPath(this.publicDir, uri);
+      if (!realPath) {
+        this.sendErrorNotFound(res);
+        return;
+      }
+      fs.stat(realPath, (function(_this) {
+        return function(err, stats) {
+          if (err) {
+            _this.sendErrorInternal(res);
+          } else if (stats.isFile()) {
+            _this.sendFile(realPath, res);
+          } else {
+            _this.sendErrorNotFound(res);
+          }
         };
       })(this));
     };
@@ -237,7 +212,8 @@
       if (this.validatePathPort(dir, port)) {
         return {
           directory: dir,
-          port: port
+          port: port,
+          clientDir: DEFAULTS.CLIENT_DIR
         };
       }
       return false;
@@ -268,10 +244,7 @@
       if (isNaN(num)) {
         return false;
       }
-      if (num < 0 || num > 65535) {
-        return false;
-      }
-      return true;
+      return num >= 0 && num <= 65535;
     };
 
     return Validator;

@@ -8,119 +8,106 @@ mime = require 'mime'
 DEFAULTS =
 	PORT: 8000,
 	DIRECTORY: process.cwd()
+	CLIENT_DIR: 'client'
 
 class FileServer
 	dirRegex: new RegExp('^/dir/([^\0]*)$')
 	fileRegex: new RegExp('^/file/([^\0]+)$')
+
 	constructor:(settings) ->
 		@publicDir = settings.directory
 		@port = settings.port
-		@clientDir = settings.clientDir || 'client'
+		@clientDir = settings.clientDir
 
 	startServer: ->
 		http.createServer((req, res) =>
 			uri = url.parse(req.url).pathname
 			uri = unescape(uri)
-			regexMatch = @dirRegex.exec(uri)
+
 			socketData = req.socket.address()
 			timeOfRequest = @getCurrentTime()
 			console.log("#{socketData.address} - #{timeOfRequest} \"#{req.method} #{uri}\"")
+
+			regexMatch = @dirRegex.exec(uri)
 			if regexMatch isnt null
-				console.log "Sending Dir: #{uri}"
+				#console.log "Sending Dir: #{uri}"
 				@checkDirExistenceAndHandle(regexMatch[1], res)
 				return
+
 			regexMatch = @fileRegex.exec(uri)
 			if regexMatch isnt null
-				console.log "Sending File: #{uri}"
+				#console.log "Sending File: #{uri}"
 				@checkFileExistenceAndHandle(regexMatch[1], res)
 				return
-			console.log "Sending Client File: #{uri}"
+
+			#console.log "Sending Client File: #{uri}"
 			@checkClientFileExistenceAndHandle(uri, res)
 			return
 		).listen(@port)
 		console.log "Server serving on port #{@port}"
 		console.log "Folder used: #{@publicDir}"
 
-	checkClientFileExistenceAndHandle: (clientUri, res) ->
-		if (clientUri is '/')
-			clientUri = 'index.html'
-		realPath = path.join(@clientDir, clientUri)
-		realPath = path.normalize(realPath)
-		if realPath.indexOf(@clientDir) != 0
-			@sendErrorNotFound(res)
-			return
-		fs.exists(realPath, (doesExist) =>
-			if (not doesExist)
-				@sendErrorNotFound(res)
-				return
-			fs.stat(realPath, (err, stats) =>
-				if(err)
-					@sendErrorInternal(res)
-				else if(stats.isDirectory())
-					@sendErrorInternal(res)
-				else
-					@sendClient(realPath, res)
-			)
-			return
-		)
-		return
+	checkClientFileExistenceAndHandle: (uri, res) ->
+		if uri is '/'
+			uri = 'index.html'
 
-	checkDirExistenceAndHandle: (dirUri, res) ->
-		realPath = path.join(@publicDir, dirUri)
-		realPath = path.normalize(realPath)
-		if realPath.indexOf(@publicDir) != 0
+		realPath = @convertPath(@clientDir, uri)
+		if not realPath
 			@sendErrorNotFound(res)
 			return
-		fs.exists(realPath, (doesExist) =>
-			if(not doesExist)
-				@sendErrorNotFound(res)
-				return
-			fs.stat(realPath, (err, stats) =>
-				if(err)
-					@sendErrorInternal(res)
-				else if(stats.isDirectory())
-					@sendDirContents(realPath, res)
-				else
-					@sendErrorNotFound(res)
-			)
-			return
-		)
-		return
-	checkFileExistenceAndHandle: (fileUri,  res) ->
-		realPath = path.join(@publicDir, fileUri)
-		realPath = path.normalize(realPath)
-		if realPath.indexOf(@publicDir) != 0
-			@sendErrorNotFound(res)
-			return
-		fs.exists(realPath, (doesExist) =>
-			if(not doesExist)
-				@sendErrorNotFound(res)
-				return
-			fs.stat(realPath, (err, stats) =>
-				if(err)
-					@sendErrorNotFound(res)
-				else if(stats.isFile())
-					@sendFile(realPath, res)
-				else
-					@sendErrorNotFound(res)
-			)
-			return
-		)
-		return
-
-	sendClient: (realPath, res) ->
-		fs.readFile(realPath, (err, data) =>
-			if(err)
+		fs.stat(realPath, (err, stats) =>
+			if err
 				@sendErrorInternal(res)
-				return
-			res.writeHead(200, {'Content-Type': mime.lookup(realPath)})
-			res.write(data)
-			res.end()
+			else if stats.isDirectory()
+				@sendErrorInternal(res)
+			else
+				@sendFile(realPath, res)
+			return
+			)
+		return
+
+	convertPath: (parentDir, uri) ->
+		realPath = path.join(parentDir, uri)
+		realPath = path.normalize(realPath)
+		if realPath.indexOf(parentDir) != 0
+			return false
+		if fs.existsSync(realPath) then return realPath else false
+
+	checkDirExistenceAndHandle: (uri, res) ->
+		realPath = @convertPath(@publicDir, uri)
+		if not realPath
+			@sendErrorNotFound(res)
+			return
+		fs.stat(realPath, (err, stats) =>
+			if err
+				@sendErrorInternal(res)
+			else if stats.isDirectory()
+				@sendDirContents(realPath, res)
+			else
+				@sendErrorNotFound(res)
+			return
 		)
 		return
+
+	checkFileExistenceAndHandle: (uri,  res) ->
+		realPath = @convertPath(@publicDir, uri)
+		if not realPath
+			@sendErrorNotFound(res)
+			return
+		fs.stat(realPath, (err, stats) =>
+			if err
+				@sendErrorInternal(res)
+			else if stats.isFile()
+				@sendFile(realPath, res)
+			else
+				@sendErrorNotFound(res)
+			return
+		)
+		return
+
 	sendDirContents: (realPath, res) ->
 		fs.readdir(realPath, (err, files) =>
-			if(err)
+			if err
 				@sendErrorInternal(res)
 				return
 			dataToSend = []
@@ -146,14 +133,17 @@ class FileServer
 			res.end()
 		)
 		return
+
 	sendFile: (filepath, res) ->
 		stream = fs.createReadStream(filepath)
 		res.writeHead(200, {'Content-Type': mime.lookup(filepath)})
 		stream.pipe(res, {end:true})
 		return
+
 	sendErrorNotFound: (res) ->
 		res.writeHead(404)
 		res.end()
+
 	sendErrorInternal: (res) ->
 		res.writeHead(500)
 		res.end()
@@ -168,13 +158,15 @@ class FileServer
 				currentTime.getSeconds() + ']'
 
 class Validator
+
 	validateArgs: ->
 		dir = process.argv[2] || DEFAULTS.DIRECTORY
 		dir = path.resolve(dir, DEFAULTS.DIRECTORY)
 		port = process.argv[3] || DEFAULTS.PORT
 		if @validatePathPort(dir, port)
-			return { directory: dir, port: port }
+			return { directory: dir, port: port, clientDir : DEFAULTS.CLIENT_DIR}
 		return false
+
 	validatePathPort: (dirpath, port) ->
 		if not @validateDir(dirpath)
 			console.log('Directory path is bad')
@@ -183,17 +175,17 @@ class Validator
 			console.log('Port must be a number between 0 to 65535')
 			return false
 		return true
+
 	validateDir: (dirpath) ->
 		if fs.existsSync(dirpath)
 			return fs.statSync(dirpath).isDirectory()
 		return false
+
 	validatePort: (port) ->
 		num = parseInt(port)
 		if isNaN(num)
 			return false
-		if num < 0 || num > 65535
-			return false
-		return true
+		return num >= 0 and num <= 65535
 
 validator = new Validator()
 settings = validator.validateArgs()
