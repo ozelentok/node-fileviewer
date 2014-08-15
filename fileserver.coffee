@@ -4,11 +4,12 @@ url = require 'url'
 path = require 'path'
 fs = require 'fs'
 mime = require 'mime'
+formidable = require 'formidable'
 
 DEFAULTS =
 	PORT: 8000,
 	DIRECTORY: process.cwd()
-	CLIENT_DIR: 'client'
+	CLIENT_DIR: path.join(__dirname, 'client')
 
 class FileServer
 	dirRegex: new RegExp('^/dir/([^\0]*)$')
@@ -28,24 +29,56 @@ class FileServer
 			timeOfRequest = @getCurrentTime()
 			console.log("#{socketData.address} - #{timeOfRequest} \"#{req.method} #{uri}\"")
 
-			regexMatch = @dirRegex.exec(uri)
-			if regexMatch isnt null
-				#console.log "Sending Dir: #{uri}"
-				@checkDirExistenceAndHandle(regexMatch[1], res)
-				return
+			if req.method is "GET"
+				@methodHandlerGET(req, res, uri)
+			else if req.method is "POST"
+				@methodHandlerPOST(req, res, uri)
+			else
+				@sendMethodNotAllowed(res)
 
-			regexMatch = @fileRegex.exec(uri)
-			if regexMatch isnt null
-				#console.log "Sending File: #{uri}"
-				@checkFileExistenceAndHandle(regexMatch[1], res)
-				return
-
-			#console.log "Sending Client File: #{uri}"
-			@checkClientFileExistenceAndHandle(uri, res)
 			return
 		).listen(@port)
 		console.log "Server serving on port #{@port}"
 		console.log "Folder used: #{@publicDir}"
+
+	methodHandlerGET: (req, res, uri) ->
+		regexMatch = @dirRegex.exec(uri)
+		if regexMatch isnt null
+			#console.log "Sending Dir: #{uri}"
+			@checkDirExistenceAndHandle(regexMatch[1], res)
+			return
+
+		regexMatch = @fileRegex.exec(uri)
+		if regexMatch isnt null
+			#console.log "Sending File: #{uri}"
+			@checkFileExistenceAndHandle(regexMatch[1], res)
+			return
+
+		#console.log "Sending Client File: #{uri}"
+		@checkClientFileExistenceAndHandle(uri, res)
+		return
+
+	methodHandlerPOST: (req, res, uri) ->
+		fileForm = new formidable.IncomingForm()
+		fileForm.uploadDir = path.join(@publicDir, uri)
+		fileForm.keepExtensions = true
+		fileForm.parse(req, (err, fields, files) =>
+			uploadedFile = files.uploadedFile
+			existingFilePath = uploadedFile.path
+			if uploadedFile.name is ''
+				fs.unlink(existingFilePath, (err) =>
+					@checkClientFileExistenceAndHandle(uri, res)
+					return
+				)
+			else
+				renamedFilePath = path.join(fileForm.uploadDir, uploadedFile.name)
+				fs.rename(existingFilePath, renamedFilePath, (err) =>
+					@checkClientFileExistenceAndHandle(uri, res)
+					return
+				)
+			return
+		)
+		return
 
 	checkClientFileExistenceAndHandle: (uri, res) ->
 		if uri is '/'
@@ -147,6 +180,10 @@ class FileServer
 
 	sendErrorNotFound: (res) ->
 		res.writeHead(404)
+		res.end()
+
+	sendMethodNotAllowed: (res) ->
+		res.writeHead(405)
 		res.end()
 
 	sendErrorInternal: (res) ->

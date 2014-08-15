@@ -48,14 +48,22 @@
     }
   });
 
+  FV.FileUploadFormView = Backbone.View.extend({
+    el: $('#uploadForm'),
+    setPath: function(path) {
+      this.$el.attr('action', path);
+    }
+  });
+
   FV.FileMainView = Backbone.View.extend({
     el: $('#main'),
     initialize: function() {
       this.fileList = new FV.FileList();
+      this.fileUploader = new FV.FileUploadFormView();
       this.listenTo(this.fileList, 'reset', this.render);
       this.pathHeader = this.$('#current_path');
       this.list = this.$('#file_list');
-      this.dirAjaxHandler('/');
+      this.dirAjaxHandler(window.location.pathname);
     },
     dirAjaxHandler: function(path) {
       $.ajax({
@@ -87,6 +95,7 @@
       }
       this.path = path;
       this.fileList.reset(newItems);
+      this.fileUploader.setPath(path);
     },
     parentDir: function(dirpath) {
       var i, _i, _ref;

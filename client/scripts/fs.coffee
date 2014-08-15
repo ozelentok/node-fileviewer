@@ -35,15 +35,25 @@ FV.FileView = Backbone.View.extend(
 				size /= 1024
 		return "#{size.toFixed(1)} GB"
 )
+
+FV.FileUploadFormView = Backbone.View.extend(
+	el: $('#uploadForm')
+
+	setPath: (path) ->
+		@$el.attr('action', path)
+		return
+)
+
 #class FV.FileMainView extends Backbone.View
 FV.FileMainView = Backbone.View.extend(
 	el: $('#main')
 	initialize: ->
 		@fileList = new FV.FileList()
+		@fileUploader = new FV.FileUploadFormView()
 		@listenTo(@fileList, 'reset', @render)
 		@pathHeader = @$('#current_path')
 		@list = @$('#file_list')
-		@dirAjaxHandler('/')
+		@dirAjaxHandler(window.location.pathname)
 		return
 
 	dirAjaxHandler: (path) ->
@@ -70,6 +80,7 @@ FV.FileMainView = Backbone.View.extend(
 			newItems.push(item)
 		@path = path
 		@fileList.reset(newItems)
+		@fileUploader.setPath(path)
 		return
 
 	parentDir: (dirpath) ->
