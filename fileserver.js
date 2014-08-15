@@ -197,6 +197,19 @@
               isDir: isDir,
               size: fileSize
             };
+            dataToSend.sort(function(a, b) {
+              if (a.isDir) {
+                if (b.isDir) {
+                  return a.name.toLowerCase() > b.name.toLowerCase();
+                } else {
+                  return -1;
+                }
+              }
+              if (b.isDir) {
+                return 1;
+              }
+              return a.name.toLowerCase() > b.name.toLowerCase();
+            });
           }
           res.writeHead(200, {
             'Content-Type': 'application/json'

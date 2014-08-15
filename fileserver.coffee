@@ -148,7 +148,7 @@ class FileServer
 				fileStats = fs.statSync(path.join(realPath, files[i]))
 				isDir = fileStats.isDirectory()
 				uriStart = realPath.replace(@publicDir, '/')
-				if(isDir)
+				if isDir
 					fileSize = 0
 				else
 					fileSize = fileStats.size
@@ -161,6 +161,16 @@ class FileServer
 					isDir: isDir
 					size: fileSize
 				}
+				dataToSend.sort((a, b) ->
+					if a.isDir
+						if b.isDir
+							return a.name.toLowerCase() > b.name.toLowerCase()
+						else
+							return -1
+					if b.isDir
+						return 1
+					return a.name.toLowerCase() > b.name.toLowerCase()
+				)
 			res.writeHead(200, {'Content-Type': 'application/json'})
 			res.write(JSON.stringify(dataToSend))
 			res.end()
