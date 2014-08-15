@@ -136,8 +136,13 @@ class FileServer
 
 	sendFile: (filepath, res) ->
 		stream = fs.createReadStream(filepath)
-		res.writeHead(200, {'Content-Type': mime.lookup(filepath)})
-		stream.pipe(res, {end:true})
+		stream.on('open', ->
+			res.writeHead(200, {'Content-Type': mime.lookup(filepath)})
+			stream.pipe(res, {end:true})
+		)
+		stream.on('error', (err) =>
+			@sendErrorInternal()
+		)
 		return
 
 	sendErrorNotFound: (res) ->

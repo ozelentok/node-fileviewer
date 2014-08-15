@@ -173,12 +173,19 @@
     FileServer.prototype.sendFile = function(filepath, res) {
       var stream;
       stream = fs.createReadStream(filepath);
-      res.writeHead(200, {
-        'Content-Type': mime.lookup(filepath)
+      stream.on('open', function() {
+        res.writeHead(200, {
+          'Content-Type': mime.lookup(filepath)
+        });
+        return stream.pipe(res, {
+          end: true
+        });
       });
-      stream.pipe(res, {
-        end: true
-      });
+      stream.on('error', (function(_this) {
+        return function(err) {
+          return _this.sendErrorInternal();
+        };
+      })(this));
     };
 
     FileServer.prototype.sendErrorNotFound = function(res) {
