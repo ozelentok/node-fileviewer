@@ -4,7 +4,7 @@
   "description": "HTTP Server to serve files",
   "main": "fileserver.js",
   "dependencies": {
-		"formidable": "*"
+		"formidable": "*",
     "mime": "*"
   },
   "devDependencies": {},
