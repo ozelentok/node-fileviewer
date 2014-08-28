@@ -4,6 +4,7 @@ url = require 'url'
 path = require 'path'
 fs = require 'fs'
 mime = require 'mime'
+jade = require 'jade'
 formidable = require 'formidable'
 
 DEFAULTS =
@@ -12,192 +13,163 @@ DEFAULTS =
 	CLIENT_DIR: path.join(__dirname, 'client')
 
 class FileServer
-	dirRegex: new RegExp('^/dir/([^\0]*)$')
-	fileRegex: new RegExp('^/file/([^\0]+)$')
 
-	constructor:(settings) ->
+	constructor: (settings) ->
 		@publicDir = settings.directory
 		@port = settings.port
 		@clientDir = settings.clientDir
+		@dirIndexTemplate = jade.compileFile path.join(@clientDir, 'index.jade')
 
 	startServer: ->
-		http.createServer((req, res) =>
+		httpServer = http.createServer (req, res) =>
 			uri = url.parse(req.url).pathname
 			uri = unescape(uri)
 
 			socketData = req.socket.address()
 			timeOfRequest = @getCurrentTime()
-			console.log("#{socketData.address} - #{timeOfRequest} \"#{req.method} #{uri}\"")
+			console.log "#{socketData.address} - #{timeOfRequest} \"#{req.method} #{uri}\""
 
 			if req.method is "GET"
-				@methodHandlerGET(req, res, uri)
+				@methodHandlerGET(res, uri)
 			else if req.method is "POST"
 				@methodHandlerPOST(req, res, uri)
 			else
 				@sendMethodNotAllowed(res)
-
 			return
-		).listen(@port)
+
+		httpServer.listen @port
 		console.log "Server serving on port #{@port}"
 		console.log "Folder used: #{@publicDir}"
+		return
 
-	methodHandlerGET: (req, res, uri) ->
-		regexMatch = @dirRegex.exec(uri)
-		if regexMatch isnt null
-			#console.log "Sending Dir: #{uri}"
-			@checkDirExistenceAndHandle(regexMatch[1], res)
+	methodHandlerGET: (res, uri) ->
+		systemPath = @uriToSystemPath uri
+		if systemPath[systemPath.length - 1] is '/' and systemPath isnt '/'
+			systemPath = systemPath[0...systemPath.length - 1]
+		if not systemPath
+			@sendErrorNotFound res
 			return
-
-		regexMatch = @fileRegex.exec(uri)
-		if regexMatch isnt null
-			#console.log "Sending File: #{uri}"
-			@checkFileExistenceAndHandle(regexMatch[1], res)
+		fs.stat systemPath, (err, stats) =>
+			if err
+				@sendErrorInternal res
+			else if stats.isFile()
+				@sendFile res, systemPath
+			else
+				@sendDirIndex res, systemPath
 			return
-
-		#console.log "Sending Client File: #{uri}"
-		@checkClientFileExistenceAndHandle(uri, res)
 		return
 
 	methodHandlerPOST: (req, res, uri) ->
 		fileForm = new formidable.IncomingForm()
 		fileForm.uploadDir = path.join(@publicDir, uri)
 		fileForm.keepExtensions = true
-		fileForm.parse(req, (err, fields, files) =>
+		fileForm.parse req, (err, fields, files) =>
 			uploadedFile = files.uploadedFile
 			existingFilePath = uploadedFile.path
 			if uploadedFile.name is ''
-				fs.unlink(existingFilePath, (err) =>
+				fs.unlink existingFilePath, (err) =>
 					@checkClientFileExistenceAndHandle(uri, res)
 					return
-				)
 			else
 				renamedFilePath = path.join(fileForm.uploadDir, uploadedFile.name)
-				fs.rename(existingFilePath, renamedFilePath, (err) =>
+				fs.rename existingFilePath, renamedFilePath, (err) =>
 					@checkClientFileExistenceAndHandle(uri, res)
 					return
-				)
 			return
-		)
 		return
 
-	checkClientFileExistenceAndHandle: (uri, res) ->
-		if uri is '/'
-			uri = 'index.html'
-
-		realPath = @convertPath(@clientDir, uri)
-		if not realPath
-			@sendErrorNotFound(res)
-			return
-		fs.stat(realPath, (err, stats) =>
-			if err
-				@sendErrorInternal(res)
-			else if stats.isDirectory()
-				@sendErrorInternal(res)
-			else
-				@sendFile(realPath, res)
-			return
-			)
-		return
-
-	convertPath: (parentDir, uri) ->
-		realPath = path.join(parentDir, uri)
+	uriToSystemPath: (uri) ->
+		realPath = path.join(@publicDir, uri)
 		realPath = path.normalize(realPath)
-		if realPath.indexOf(parentDir) != 0
+		if realPath.indexOf(@publicDir) != 0
 			return false
 		if fs.existsSync(realPath) then return realPath else false
 
-	checkDirExistenceAndHandle: (uri, res) ->
-		realPath = @convertPath(@publicDir, uri)
-		if not realPath
-			@sendErrorNotFound(res)
-			return
-		fs.stat(realPath, (err, stats) =>
-			if err
-				@sendErrorInternal(res)
-			else if stats.isDirectory()
-				@sendDirContents(realPath, res)
-			else
-				@sendErrorNotFound(res)
-			return
-		)
-		return
+	generateIndexHTML: (path, filesMetaData)->
+		return @dirIndexTemplate({path: path, filesMetaData: filesMetaData})
 
-	checkFileExistenceAndHandle: (uri,  res) ->
-		realPath = @convertPath(@publicDir, uri)
-		if not realPath
-			@sendErrorNotFound(res)
-			return
-		fs.stat(realPath, (err, stats) =>
-			if err
-				@sendErrorInternal(res)
-			else if stats.isFile()
-				@sendFile(realPath, res)
-			else
-				@sendErrorNotFound(res)
-			return
-		)
-		return
-
-	sendDirContents: (realPath, res) ->
-		fs.readdir(realPath, (err, files) =>
+	sendDirIndex: (res, systemPath) ->
+		fs.readdir systemPath, (err, files) =>
 			if err
 				@sendErrorInternal(res)
 				return
-			dataToSend = []
+			filesMetaData = []
 			for i in [0...files.length]
-				fileStats = fs.statSync(path.join(realPath, files[i]))
+				fileStats = fs.statSync(path.join(systemPath, files[i]))
 				isDir = fileStats.isDirectory()
-				uriStart = realPath.replace(@publicDir, '/')
+				if systemPath is @publicDir
+					parentDir = systemPath.replace(@publicDir, '/')
+				else
+					parentDir = systemPath.replace(@publicDir, '')
 				if isDir
 					fileSize = 0
 				else
 					fileSize = fileStats.size
-				uri = path.join(uriStart, files[i])
-				if isDir
-					uri += '/'
-				dataToSend[i] = {
+				uri = path.join(parentDir, files[i])
+				filesMetaData[i] = {
 					name: files[i]
 					uri: uri
 					isDir: isDir
-					size: fileSize
+					size: @humanSize(fileSize)
 				}
-				dataToSend.sort((a, b) ->
-					if a.isDir
-						if b.isDir
-							return a.name.toLowerCase() > b.name.toLowerCase()
-						else
-							return -1
+			filesMetaData.sort (a, b) ->
+				if a.isDir
 					if b.isDir
-						return 1
-					return a.name.toLowerCase() > b.name.toLowerCase()
-				)
-			res.writeHead(200, {'Content-Type': 'application/json'})
-			res.write(JSON.stringify(dataToSend))
+						return a.name.toLowerCase() > b.name.toLowerCase()
+					else
+						return -1
+				if b.isDir
+					return 1
+				return a.name.toLowerCase() > b.name.toLowerCase()
+
+			if parentDir isnt '/'
+				for i in [parentDir.length - 2..0] by -1
+					if parentDir[i] is '/'
+						upDirUri = parentDir[0...i]
+						upDirUri = if upDirUri then upDirUri else '/'
+						filesMetaData.splice 0, 0, {
+							name: 'Go up in directory tree'
+							uri: upDirUri
+							isDir: true
+							size: 0
+						}
+						break
+			res.writeHead 200, {'Content-Type': 'text/html' }
+			res.write @generateIndexHTML(parentDir, filesMetaData)
 			res.end()
-		)
+			return
 		return
 
-	sendFile: (filepath, res) ->
-		stream = fs.createReadStream(filepath)
-		stream.on('open', ->
-			res.writeHead(200, {'Content-Type': mime.lookup(filepath)})
+	humanSize: (size) ->
+		types = ['Bytes', 'KB', 'MB']
+		for type in types
+			if(size < 1024)
+				return "#{size.toFixed(1)} #{type}"
+			else
+				size /= 1024
+		return "#{size.toFixed(1)} GB"
+
+	sendFile: (res, systemPath) ->
+		stream = fs.createReadStream(systemPath)
+		stream.on 'open', ->
+			res.writeHead(200, {'Content-Type': mime.lookup(systemPath)})
 			stream.pipe(res, {end:true})
-		)
-		stream.on('error', (err) =>
+			return
+		stream.on 'error', (err) =>
 			@sendErrorInternal()
-		)
+			return
 		return
 
 	sendErrorNotFound: (res) ->
-		res.writeHead(404)
+		res.writeHead 404
 		res.end()
 
 	sendMethodNotAllowed: (res) ->
-		res.writeHead(405)
+		res.writeHead 405
 		res.end()
 
 	sendErrorInternal: (res) ->
-		res.writeHead(500)
+		res.writeHead 500
 		res.end()
 
 	getCurrentTime: ->
@@ -213,34 +185,34 @@ class Validator
 
 	validateArgs: ->
 		dir = process.argv[2] || DEFAULTS.DIRECTORY
-		dir = path.resolve(dir, DEFAULTS.DIRECTORY)
+		dir = path.resolve dir, DEFAULTS.DIRECTORY
 		port = process.argv[3] || DEFAULTS.PORT
-		if @validatePathPort(dir, port)
+		if @validatePathPort dir, port
 			return { directory: dir, port: port, clientDir : DEFAULTS.CLIENT_DIR}
 		return false
 
 	validatePathPort: (dirpath, port) ->
 		if not @validateDir(dirpath)
-			console.log('Directory path is bad')
+			console.log 'Directory path is bad'
 			return false
 		if not @validatePort(port)
-			console.log('Port must be a number between 0 to 65535')
+			console.log 'Port must be a number between 0 to 65535'
 			return false
 		return true
 
 	validateDir: (dirpath) ->
-		if fs.existsSync(dirpath)
+		if fs.existsSync dirpath
 			return fs.statSync(dirpath).isDirectory()
 		return false
 
 	validatePort: (port) ->
-		num = parseInt(port)
-		if isNaN(num)
+		num = parseInt port
+		if isNaN num
 			return false
 		return num >= 0 and num <= 65535
 
 validator = new Validator()
 settings = validator.validateArgs()
 if settings
-	fileServer = new FileServer(settings)
+	fileServer = new FileServer settings
 	fileServer.startServer()

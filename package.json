@@ -4,12 +4,13 @@
   "description": "HTTP Server to serve files",
   "main": "fileserver.js",
   "dependencies": {
-		"formidable": "*",
-    "mime": "*"
+    "jade": "*",
+    "mime": "*",
+    "formidable": "*"
   },
   "devDependencies": {},
   "scripts": {
-		"serve": "node fileserver.js $PWD 8000",
+    "serve": "node fileserver.js $PWD 8000",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

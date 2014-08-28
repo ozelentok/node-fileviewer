@@ -1,0 +1,28 @@
+doctype html
+html(lang="en")
+	head
+		title File Browser - #{path}
+		meta(charset="utf-8")
+		style(type='text/css')
+			include style.css
+	body
+		div(id="main")
+			h1 File Browser
+			h2 Index of #{path}
+			form(id="fileUploadForm" method="POST", enctype="multipart/form-data")
+				input(type="submit" name="submit" value="Upload")
+				input(type="file" name="uploadedFile" value="value")
+			ul(id="file_list")
+				for fileMetaData in filesMetaData
+					li
+						if fileMetaData.isDir
+							include img/directory.jade
+						else
+							include img/file.jade
+						a(class="filename" href=fileMetaData.uri)= fileMetaData.name
+						if !fileMetaData.isDir
+							span(class="filesize")= fileMetaData.size
+
+
+
+
