@@ -28,6 +28,7 @@
       this.port = settings.port;
       this.clientDir = settings.clientDir;
       this.dirIndexTemplate = jade.compileFile(path.join(this.clientDir, 'index.jade'));
+      this.errorPageTemplate = jade.compileFile(path.join(this.clientDir, 'error.jade'));
     }
 
     FileServer.prototype.startServer = function() {
@@ -119,6 +120,13 @@
       return this.dirIndexTemplate({
         path: path,
         filesMetaData: filesMetaData
+      });
+    };
+
+    FileServer.prototype.genereateErrorHTML = function(errorCode, description) {
+      return this.errorPageTemplate({
+        errorCode: errorCode,
+        errorDescription: description
       });
     };
 
@@ -223,16 +231,19 @@
 
     FileServer.prototype.sendErrorNotFound = function(res) {
       res.writeHead(404);
+      res.write(this.genereateErrorHTML(404, "File Not Found"));
       return res.end();
     };
 
     FileServer.prototype.sendMethodNotAllowed = function(res) {
       res.writeHead(405);
+      res.write(this.genereateErrorHTML(405, "Method Not Allowed"));
       return res.end();
     };
 
     FileServer.prototype.sendErrorInternal = function(res) {
       res.writeHead(500);
+      res.write(this.genereateErrorHTML(500, "Internal Server Error"));
       return res.end();
     };
 

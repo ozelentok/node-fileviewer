@@ -19,6 +19,7 @@ class FileServer
 		@port = settings.port
 		@clientDir = settings.clientDir
 		@dirIndexTemplate = jade.compileFile path.join(@clientDir, 'index.jade')
+		@errorPageTemplate = jade.compileFile path.join(@clientDir, 'error.jade')
 
 	startServer: ->
 		httpServer = http.createServer (req, res) =>
@@ -85,8 +86,11 @@ class FileServer
 			return false
 		if fs.existsSync(realPath) then return realPath else false
 
-	generateIndexHTML: (path, filesMetaData)->
-		return @dirIndexTemplate({path: path, filesMetaData: filesMetaData})
+	generateIndexHTML: (path, filesMetaData) ->
+		return @dirIndexTemplate {path: path, filesMetaData: filesMetaData}
+
+	genereateErrorHTML: (errorCode, description) ->
+		return @errorPageTemplate {errorCode: errorCode, errorDescription: description}
 
 	sendDirIndex: (res, systemPath) ->
 		fs.readdir systemPath, (err, files) =>
@@ -95,17 +99,17 @@ class FileServer
 				return
 			filesMetaData = []
 			for i in [0...files.length]
-				fileStats = fs.statSync(path.join(systemPath, files[i]))
+				fileStats = fs.statSync path.join(systemPath, files[i])
 				isDir = fileStats.isDirectory()
 				if systemPath is @publicDir
-					parentDir = systemPath.replace(@publicDir, '/')
+					parentDir = systemPath.replace @publicDir, '/'
 				else
-					parentDir = systemPath.replace(@publicDir, '')
+					parentDir = systemPath.replace @publicDir, ''
 				if isDir
 					fileSize = 0
 				else
 					fileSize = fileStats.size
-				uri = path.join(parentDir, files[i])
+				uri = path.join parentDir, files[i]
 				filesMetaData[i] = {
 					name: files[i]
 					uri: uri
@@ -162,14 +166,17 @@ class FileServer
 
 	sendErrorNotFound: (res) ->
 		res.writeHead 404
+		res.write @genereateErrorHTML(404, "File Not Found")
 		res.end()
 
 	sendMethodNotAllowed: (res) ->
 		res.writeHead 405
+		res.write @genereateErrorHTML(405, "Method Not Allowed")
 		res.end()
 
 	sendErrorInternal: (res) ->
 		res.writeHead 500
+		res.write @genereateErrorHTML(500, "Internal Server Error")
 		res.end()
 
 	getCurrentTime: ->
