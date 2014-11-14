@@ -69,12 +69,18 @@ class FileServer
 			existingFilePath = uploadedFile.path
 			if uploadedFile.name is ''
 				fs.unlink existingFilePath, (err) =>
-					@checkClientFileExistenceAndHandle(uri, res)
+					if err
+						@sendErrorInternal res
+					else
+						@sendDirIndex res, @uriToSystemPath(uri)
 					return
 			else
 				renamedFilePath = path.join(fileForm.uploadDir, uploadedFile.name)
 				fs.rename existingFilePath, renamedFilePath, (err) =>
-					@checkClientFileExistenceAndHandle(uri, res)
+					if err
+						@sendErrorInternal res
+					else
+						@sendDirIndex res, @uriToSystemPath(uri)
 					return
 			return
 		return
@@ -192,15 +198,16 @@ class Validator
 
 	validateArgs: ->
 		dir = process.argv[2] || DEFAULTS.DIRECTORY
-		dir = path.resolve dir, DEFAULTS.DIRECTORY
+		dir = path.resolve(dir)
 		port = process.argv[3] || DEFAULTS.PORT
+		console.log port
 		if @validatePathPort dir, port
 			return { directory: dir, port: port, clientDir : DEFAULTS.CLIENT_DIR}
 		return false
 
 	validatePathPort: (dirpath, port) ->
 		if not @validateDir(dirpath)
-			console.log 'Directory path is bad'
+			console.log 'Directory path is invalid'
 			return false
 		if not @validatePort(port)
 			console.log 'Port must be a number between 0 to 65535'
